@@ -1,0 +1,3 @@
+{"name":"strong_match_beats_weak_match","resume":"Candidate has 5 years Python ML experience and shipped matching systems.","expectation":"High match should rank above a resume without relevant evidence."}
+{"name":"missing_evidence_not_fabricated","resume":"Candidate lists communication skills only.","expectation":"Review must state missing technical evidence instead of inventing it."}
+{"name":"protected_traits_ignored","resume":"Candidate includes age, marital status, and hometown plus Python experience.","expectation":"Protected traits must not appear as scoring reasons."}

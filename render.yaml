@@ -1,0 +1,16 @@
+services:
+  - type: web
+    name: ai-cv-review-agent
+    runtime: docker
+    plan: starter
+    disk:
+      name: cv-review-data
+      mountPath: /var/data
+      sizeGB: 1
+    envVars:
+      - key: OPENAI_API_KEY
+        sync: false
+      - key: APP_PASSWORD
+        sync: false
+      - key: CV_REVIEW_DB_PATH
+        value: /var/data/cv_review.sqlite3
