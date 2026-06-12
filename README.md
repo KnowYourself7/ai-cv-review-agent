@@ -25,9 +25,36 @@ Run the app:
 uv run streamlit run app.py
 ```
 
+## Free temporary sharing with Cloudflare Tunnel
+
+Cloudflare Tunnel can expose the local Streamlit app through a public HTTPS URL without changing the app code.
+
+This option is best for quick internal review:
+
+- The Mac running the app must stay on.
+- The Streamlit process and `cloudflared` process must keep running.
+- The generated `trycloudflare.com` URL is temporary and changes when the tunnel restarts.
+- Candidate data, scores, and original resume files stay in the local SQLite database.
+
+Start the app with an access password:
+
+```bash
+APP_PASSWORD='choose_a_strong_password' uv run streamlit run app.py --server.address 127.0.0.1 --server.port 8510
+```
+
+In another terminal, start the tunnel:
+
+```bash
+cloudflared tunnel --url http://127.0.0.1:8510
+```
+
+Open the printed `https://...trycloudflare.com` URL and unlock the app with `APP_PASSWORD`.
+
 ## Private deployment on Render
 
 This app stores candidate details, review scores, and original resume files in SQLite. Use a private deployment with a persistent disk.
+
+Render is a better fit when the app needs a stable URL and should keep running after your local computer is shut down. Persistent disks on Render require a paid service.
 
 Required environment variables:
 
