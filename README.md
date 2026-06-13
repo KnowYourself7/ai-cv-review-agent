@@ -115,7 +115,7 @@ HOSTINGER_USER=<ssh_user>
 HOSTINGER_SSH_KEY=<private_ssh_key_allowed_to_access_the_server>
 HOSTINGER_PASSWORD=<ssh_password_if_not_using_an_ssh_key>
 HOSTINGER_SSH_PORT=22
-HOSTINGER_APP_DIR=/home/<ssh_user>/apps/ai-cv-review-agent
+HOSTINGER_APP_DIR=/root/apps/ai-cv-review-agent
 ```
 
 After that, every push to `main` runs tests and deploys with:
