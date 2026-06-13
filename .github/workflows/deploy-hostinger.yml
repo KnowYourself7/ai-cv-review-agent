@@ -40,17 +40,14 @@ jobs:
       - name: Deploy over SSH
         uses: appleboy/ssh-action@v1.2.0
         with:
-          host: ${{ secrets.HOSTINGER_HOST }}
-          username: ${{ secrets.HOSTINGER_USER }}
+          host: 31.97.57.160
+          username: root
           key: ${{ secrets.HOSTINGER_SSH_KEY }}
           password: ${{ secrets.HOSTINGER_PASSWORD }}
-          port: ${{ secrets.HOSTINGER_SSH_PORT || 22 }}
+          port: 22
           script_stop: true
           script: |
-            APP_DIR="${{ secrets.HOSTINGER_APP_DIR }}"
-            if [ -z "$APP_DIR" ]; then
-              APP_DIR="/root/apps/ai-cv-review-agent"
-            fi
+            APP_DIR="/root/apps/ai-cv-review-agent"
             if [ ! -d "$APP_DIR/.git" ]; then
               mkdir -p "$(dirname "$APP_DIR")"
               git clone https://github.com/KnowYourself7/ai-cv-review-agent.git "$APP_DIR"

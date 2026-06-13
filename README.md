@@ -110,13 +110,11 @@ One-time GitHub setup:
 Add these repository secrets in GitHub:
 
 ```text
-HOSTINGER_HOST=<your_server_ip_or_hostname>
-HOSTINGER_USER=<ssh_user>
 HOSTINGER_SSH_KEY=<private_ssh_key_allowed_to_access_the_server>
 HOSTINGER_PASSWORD=<ssh_password_if_not_using_an_ssh_key>
-HOSTINGER_SSH_PORT=22
-HOSTINGER_APP_DIR=/root/apps/ai-cv-review-agent
 ```
+
+The workflow deploys to `root@31.97.57.160:22` and uses `/root/apps/ai-cv-review-agent` as the server app directory.
 
 After that, every push to `main` runs tests and deploys with:
 

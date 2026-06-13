@@ -10,7 +10,9 @@ def test_hostinger_workflow_deploys_main_after_tests():
     assert "branches:\n      - main" in workflow
     assert "needs: test" in workflow
     assert "uses: appleboy/ssh-action@v1.2.0" in workflow
-    assert "HOSTINGER_HOST" in workflow
+    assert "host: 31.97.57.160" in workflow
+    assert "username: root" in workflow
+    assert "port: 22" in workflow
     assert "APP_DIR=\"/root/apps/ai-cv-review-agent\"" in workflow
     assert "git clone https://github.com/KnowYourself7/ai-cv-review-agent.git" in workflow
     assert "git pull --ff-only origin main" in workflow
