@@ -4,28 +4,29 @@ from cv_review_agent.storage import get_default_db_path, import_database, save_j
 from cv_review_agent.schemas import JobTemplate
 
 
-def test_hostinger_workflow_deploys_main_after_tests():
+def test_github_workflow_runs_tests_on_main_push():
     workflow = Path(".github/workflows/deploy-hostinger.yml").read_text()
 
     assert "branches:\n      - main" in workflow
-    assert "needs: test" in workflow
-    assert "uses: appleboy/ssh-action@v1.2.0" in workflow
-    assert "host: 31.97.57.160" in workflow
-    assert "username: root" in workflow
-    assert "port: 22" in workflow
-    assert "APP_DIR=\"/root/apps/ai-cv-review-agent\"" in workflow
-    assert "git clone https://github.com/KnowYourself7/ai-cv-review-agent.git" in workflow
-    assert "git pull --ff-only origin main" in workflow
-    assert "HOSTINGER_PASSWORD" in workflow
-    assert "docker compose up -d --build" in workflow
+    assert "uv run pytest" in workflow
+    assert "appleboy/ssh-action" not in workflow
 
 
 def test_docker_compose_uses_persistent_server_data_dir():
     compose = Path("docker-compose.yml").read_text()
 
-    assert "- .env.production" in compose
+    assert "- .env" in compose
     assert "CV_REVIEW_DB_PATH: /var/data/cv_review.sqlite3" in compose
     assert "- ./data:/var/data" in compose
+
+
+def test_hostinger_deploy_script_fast_forwards_and_rebuilds():
+    script = Path("scripts/deploy-hostinger.sh").read_text()
+
+    assert 'APP_DIR="/opt/ai-cv-review-agent"' in script
+    assert 'git fetch origin "$BRANCH"' in script
+    assert 'git merge --ff-only "origin/$BRANCH"' in script
+    assert "docker compose up -d --build" in script
 
 
 def test_get_default_db_path_uses_env_override(monkeypatch, tmp_path: Path):

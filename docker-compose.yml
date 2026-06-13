@@ -4,7 +4,7 @@ services:
     container_name: ai-cv-review-agent
     restart: unless-stopped
     env_file:
-      - .env.production
+      - .env
     environment:
       CV_REVIEW_DB_PATH: /var/data/cv_review.sqlite3
       PORT: 8501

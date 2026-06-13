@@ -87,9 +87,9 @@ Do not commit `.env.local`, `data/`, downloaded resumes, or database files.
 - Screening output is decision support only. A human reviewer must confirm final hiring decisions.
 - Do not score candidates using protected or job-irrelevant traits.
 
-## Auto-deploy to Hostinger from GitHub
+## Auto-deploy on Hostinger
 
-This repository includes a GitHub Actions workflow that deploys `main` to a Hostinger VPS over SSH after tests pass.
+This repository includes a server-side deploy script for Hostinger. The VPS pulls `main` from GitHub and rebuilds the Docker Compose app when a new commit is available.
 
 One-time server setup:
 
@@ -105,23 +105,19 @@ docker compose up -d --build
 
 If the GitHub repository is private, add the server's SSH public key as a GitHub deploy key before running `git clone` or `git pull`.
 
-One-time GitHub setup:
-
-Add these repository secrets in GitHub:
-
-```text
-HOSTINGER_SSH_KEY=<private_ssh_key_allowed_to_access_the_server>
-HOSTINGER_PASSWORD=<ssh_password_if_not_using_an_ssh_key>
-```
-
-The workflow deploys to `root@31.97.57.160:22` and uses `/root/apps/ai-cv-review-agent` as the server app directory.
-
-After that, every push to `main` runs tests and deploys with:
+One-time cron setup on the server:
 
 ```bash
-git pull --ff-only origin main
+chmod +x /opt/ai-cv-review-agent/scripts/deploy-hostinger.sh
+printf '* * * * * root /opt/ai-cv-review-agent/scripts/deploy-hostinger.sh >> /var/log/ai-cv-review-agent-deploy.log 2>&1\n' > /etc/cron.d/ai-cv-review-agent
+```
+
+After that, every push to `main` is picked up by the server within about one minute and deployed with:
+
+```bash
+git merge --ff-only origin/main
 docker compose up -d --build
 docker image prune -f
 ```
 
-The SQLite database and original uploaded resumes are stored in `./data` on the server through the Docker volume mapping. Do not commit `.env.production` or `data/`.
+The SQLite database and original uploaded resumes are stored in `./data` on the server through the Docker volume mapping. Do not commit `.env`, `.env.production`, or `data/`.
