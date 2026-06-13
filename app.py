@@ -15,14 +15,15 @@ from cv_review_agent.parsers import parse_resume_file
 from cv_review_agent.schemas import JobTemplate
 from cv_review_agent.scoring import rank_scores
 from cv_review_agent.storage import (
+    import_database,
     load_candidates,
     load_job_templates,
+    load_resume_file,
     load_scores,
     save_candidate,
     save_job_templates,
     save_resume_file,
     save_score,
-    load_resume_file,
 )
 
 
@@ -218,6 +219,7 @@ def main() -> None:
     with right:
         st.markdown('<div class="section-label">Output</div>', unsafe_allow_html=True)
         render_results()
+    render_admin_tools()
 
 
 def require_login() -> bool:
@@ -425,6 +427,31 @@ def render_results() -> None:
             mime="application/json",
             use_container_width=True,
         )
+
+
+def render_admin_tools() -> None:
+    with st.expander("Admin database restore"):
+        st.markdown(
+            '<p class="panel-note">Restore a trusted CV Review SQLite database. The current server database is backed up before replacement.</p>',
+            unsafe_allow_html=True,
+        )
+        uploaded_db = st.file_uploader(
+            "SQLite database",
+            type=["sqlite3", "db"],
+            accept_multiple_files=False,
+            key="database-restore-upload",
+        )
+        if st.button("Restore database", use_container_width=True):
+            if uploaded_db is None:
+                st.error("Upload a SQLite database first.")
+                return
+            try:
+                backup_path = import_database(uploaded_db.getvalue())
+            except ValueError as exc:
+                st.error(str(exc))
+                return
+            st.success(f"Database restored. Previous server database backup: {backup_path}")
+            st.rerun()
 
 
 def render_score_card(candidate_name: str, source_filename: str, score) -> None:

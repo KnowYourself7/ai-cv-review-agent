@@ -1,6 +1,6 @@
 from pathlib import Path
 
-from cv_review_agent.storage import get_default_db_path, save_job_templates
+from cv_review_agent.storage import get_default_db_path, import_database, save_job_templates
 from cv_review_agent.schemas import JobTemplate
 
 
@@ -32,3 +32,35 @@ def test_storage_default_path_uses_runtime_env_override(monkeypatch, tmp_path: P
     )
 
     assert db_path.exists()
+
+
+def test_import_database_replaces_existing_database(monkeypatch, tmp_path: Path):
+    current_db = tmp_path / "current.sqlite3"
+    uploaded_db = tmp_path / "uploaded.sqlite3"
+    monkeypatch.setenv("CV_REVIEW_DB_PATH", str(current_db))
+
+    save_job_templates(
+        [
+            JobTemplate(
+                id="old-job",
+                title="Old Role",
+                required_conditions=["Old"],
+            )
+        ]
+    )
+    save_job_templates(
+        [
+            JobTemplate(
+                id="new-job",
+                title="New Role",
+                required_conditions=["New"],
+            )
+        ],
+        db_path=uploaded_db,
+    )
+
+    backup_path = import_database(uploaded_db.read_bytes())
+
+    assert backup_path.exists()
+    assert "before-import" in backup_path.name
+    assert get_default_db_path().read_bytes() == uploaded_db.read_bytes()

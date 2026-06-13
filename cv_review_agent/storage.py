@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import os
+import shutil
 import sqlite3
 from datetime import datetime, timezone
 from pathlib import Path
@@ -11,6 +12,7 @@ from cv_review_agent.schemas import CandidateProfile, JobScore, JobTemplate, Res
 
 
 LOCAL_DB_PATH = Path("data/cv_review.sqlite3")
+REQUIRED_TABLES = {"job_templates", "candidates", "scores", "resume_files"}
 
 
 def get_default_db_path() -> Path:
@@ -67,6 +69,37 @@ def init_db(db_path: Path | None = None) -> None:
             )
             """
         )
+
+
+def import_database(content: bytes, db_path: Path | None = None) -> Path:
+    db_path = db_path or get_default_db_path()
+    db_path.parent.mkdir(parents=True, exist_ok=True)
+    temp_path = db_path.with_suffix(f"{db_path.suffix}.upload")
+    backup_path = db_path.with_name(
+        f"{db_path.stem}.before-import-{datetime.now(timezone.utc).strftime('%Y%m%d%H%M%S')}{db_path.suffix}"
+    )
+    temp_path.write_bytes(content)
+    try:
+        _validate_import_database(temp_path)
+        if db_path.exists():
+            shutil.copy2(db_path, backup_path)
+        else:
+            backup_path.write_bytes(b"")
+        temp_path.replace(db_path)
+        return backup_path
+    finally:
+        temp_path.unlink(missing_ok=True)
+
+
+def _validate_import_database(db_path: Path) -> None:
+    try:
+        with sqlite3.connect(db_path) as conn:
+            rows = conn.execute("SELECT name FROM sqlite_master WHERE type = 'table'").fetchall()
+    except sqlite3.DatabaseError as exc:
+        raise ValueError("Uploaded file is not a valid SQLite database") from exc
+    missing = REQUIRED_TABLES - {row[0] for row in rows}
+    if missing:
+        raise ValueError("Uploaded database is missing required CV review tables")
 
 
 def save_job_templates(templates: List[JobTemplate], db_path: Path | None = None) -> None:
