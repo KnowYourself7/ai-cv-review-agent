@@ -4,6 +4,26 @@ from cv_review_agent.storage import get_default_db_path, import_database, save_j
 from cv_review_agent.schemas import JobTemplate
 
 
+def test_hostinger_workflow_deploys_main_after_tests():
+    workflow = Path(".github/workflows/deploy-hostinger.yml").read_text()
+
+    assert "branches:\n      - main" in workflow
+    assert "needs: test" in workflow
+    assert "uses: appleboy/ssh-action@v1.2.0" in workflow
+    assert "HOSTINGER_HOST" in workflow
+    assert "git pull --ff-only origin main" in workflow
+    assert "HOSTINGER_PASSWORD" in workflow
+    assert "docker compose up -d --build" in workflow
+
+
+def test_docker_compose_uses_persistent_server_data_dir():
+    compose = Path("docker-compose.yml").read_text()
+
+    assert "- .env.production" in compose
+    assert "CV_REVIEW_DB_PATH: /var/data/cv_review.sqlite3" in compose
+    assert "- ./data:/var/data" in compose
+
+
 def test_get_default_db_path_uses_env_override(monkeypatch, tmp_path: Path):
     db_path = tmp_path / "online.sqlite3"
     monkeypatch.setenv("CV_REVIEW_DB_PATH", str(db_path))

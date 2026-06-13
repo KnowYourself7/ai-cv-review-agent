@@ -86,3 +86,44 @@ Do not commit `.env.local`, `data/`, downloaded resumes, or database files.
 - v1 supports text-based PDF and DOCX files. Scanned PDFs/OCR are out of scope.
 - Screening output is decision support only. A human reviewer must confirm final hiring decisions.
 - Do not score candidates using protected or job-irrelevant traits.
+
+## Auto-deploy to Hostinger from GitHub
+
+This repository includes a GitHub Actions workflow that deploys `main` to a Hostinger VPS over SSH after tests pass.
+
+One-time server setup:
+
+```bash
+mkdir -p ~/apps
+cd ~/apps
+git clone https://github.com/KnowYourself7/ai-cv-review-agent.git
+cd ai-cv-review-agent
+printf 'OPENAI_API_KEY=your_key_here\nAPP_PASSWORD=choose_a_strong_password\n' > .env.production
+chmod 600 .env.production
+docker compose up -d --build
+```
+
+If the GitHub repository is private, add the server's SSH public key as a GitHub deploy key before running `git clone` or `git pull`.
+
+One-time GitHub setup:
+
+Add these repository secrets in GitHub:
+
+```text
+HOSTINGER_HOST=<your_server_ip_or_hostname>
+HOSTINGER_USER=<ssh_user>
+HOSTINGER_SSH_KEY=<private_ssh_key_allowed_to_access_the_server>
+HOSTINGER_PASSWORD=<ssh_password_if_not_using_an_ssh_key>
+HOSTINGER_SSH_PORT=22
+HOSTINGER_APP_DIR=/home/<ssh_user>/apps/ai-cv-review-agent
+```
+
+After that, every push to `main` runs tests and deploys with:
+
+```bash
+git pull --ff-only origin main
+docker compose up -d --build
+docker image prune -f
+```
+
+The SQLite database and original uploaded resumes are stored in `./data` on the server through the Docker volume mapping. Do not commit `.env.production` or `data/`.

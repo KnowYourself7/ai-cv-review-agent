@@ -4,5 +4,6 @@ __pycache__/
 .ruff_cache/
 .env
 .env.local
+.env.production
 data/
 evals/results/
