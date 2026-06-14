@@ -69,6 +69,14 @@ def init_db(db_path: Path | None = None) -> None:
             )
             """
         )
+        conn.execute(
+            """
+            CREATE TABLE IF NOT EXISTS archived_candidates (
+                candidate_id TEXT PRIMARY KEY,
+                archived_at TEXT NOT NULL
+            )
+            """
+        )
 
 
 def import_database(content: bytes, db_path: Path | None = None) -> Path:
@@ -132,12 +140,55 @@ def save_candidate(candidate: CandidateProfile, db_path: Path | None = None) -> 
         )
 
 
-def load_candidates(db_path: Path | None = None) -> List[CandidateProfile]:
+def load_candidates(db_path: Path | None = None, include_archived: bool = False) -> List[CandidateProfile]:
     db_path = db_path or get_default_db_path()
     init_db(db_path)
     with sqlite3.connect(db_path) as conn:
-        rows = conn.execute("SELECT payload FROM candidates ORDER BY id").fetchall()
-    return [CandidateProfile.model_validate_json(row[0]) for row in rows]
+        rows = conn.execute("SELECT id, payload FROM candidates ORDER BY id").fetchall()
+        archived_ids = {
+            row[0]
+            for row in conn.execute("SELECT candidate_id FROM archived_candidates").fetchall()
+        }
+    candidates = [CandidateProfile.model_validate_json(row[1]) for row in rows]
+    if include_archived:
+        return candidates
+    return [candidate for candidate in candidates if candidate.id not in archived_ids]
+
+
+def load_archived_candidate_ids(db_path: Path | None = None) -> set[str]:
+    db_path = db_path or get_default_db_path()
+    init_db(db_path)
+    with sqlite3.connect(db_path) as conn:
+        rows = conn.execute("SELECT candidate_id FROM archived_candidates").fetchall()
+    return {row[0] for row in rows}
+
+
+def archive_candidate(candidate_id: str, db_path: Path | None = None) -> None:
+    db_path = db_path or get_default_db_path()
+    init_db(db_path)
+    archived_at = datetime.now(timezone.utc).isoformat()
+    with sqlite3.connect(db_path) as conn:
+        conn.execute(
+            "INSERT OR REPLACE INTO archived_candidates (candidate_id, archived_at) VALUES (?, ?)",
+            (candidate_id, archived_at),
+        )
+
+
+def unarchive_candidate(candidate_id: str, db_path: Path | None = None) -> None:
+    db_path = db_path or get_default_db_path()
+    init_db(db_path)
+    with sqlite3.connect(db_path) as conn:
+        conn.execute("DELETE FROM archived_candidates WHERE candidate_id = ?", (candidate_id,))
+
+
+def delete_candidate(candidate_id: str, db_path: Path | None = None) -> None:
+    db_path = db_path or get_default_db_path()
+    init_db(db_path)
+    with sqlite3.connect(db_path) as conn:
+        conn.execute("DELETE FROM scores WHERE candidate_id = ?", (candidate_id,))
+        conn.execute("DELETE FROM resume_files WHERE candidate_id = ?", (candidate_id,))
+        conn.execute("DELETE FROM archived_candidates WHERE candidate_id = ?", (candidate_id,))
+        conn.execute("DELETE FROM candidates WHERE id = ?", (candidate_id,))
 
 
 def save_score(score: JobScore, db_path: Path | None = None) -> None:

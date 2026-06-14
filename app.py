@@ -15,7 +15,10 @@ from cv_review_agent.parsers import parse_resume_file
 from cv_review_agent.schemas import JobTemplate
 from cv_review_agent.scoring import rank_scores
 from cv_review_agent.storage import (
+    archive_candidate,
+    delete_candidate,
     import_database,
+    load_archived_candidate_ids,
     load_candidates,
     load_job_templates,
     load_resume_file,
@@ -24,6 +27,7 @@ from cv_review_agent.storage import (
     save_job_templates,
     save_resume_file,
     save_score,
+    unarchive_candidate,
 )
 
 
@@ -222,10 +226,11 @@ def main() -> None:
 
 def render_metrics() -> None:
     templates = load_job_templates()
-    candidates = load_candidates()
+    candidates = {candidate.id: candidate for candidate in load_candidates()}
     scores = load_scores()
-    reviewed_jobs = len({score.job_id for score in scores})
-    disqualified = len([score for score in scores if score.disqualified])
+    active_scores = [score for score in scores if score.candidate_id in candidates]
+    reviewed_jobs = len({score.job_id for score in active_scores})
+    disqualified = len([score for score in active_scores if score.disqualified])
     st.markdown(
         f"""
         <div class="metric-row">
@@ -356,43 +361,49 @@ def run_review(uploaded_files, templates: list[JobTemplate]) -> None:
 
 def render_results() -> None:
     st.subheader("Rankings by role")
-    candidates = {candidate.id: candidate for candidate in load_candidates()}
+    all_candidates = {candidate.id: candidate for candidate in load_candidates(include_archived=True)}
+    archived_ids = load_archived_candidate_ids()
+    candidates = {
+        candidate_id: candidate
+        for candidate_id, candidate in all_candidates.items()
+        if candidate_id not in archived_ids
+    }
     jobs = {job.id: job for job in load_job_templates()}
-    scores = load_scores()
+    scores = [score for score in load_scores() if score.candidate_id in candidates]
     if not candidates or not jobs or not scores:
         st.info("No review results yet. Save templates, upload resumes, then start review.")
-        return
+    else:
+        for job in jobs.values():
+            st.markdown(f"### {job.title}")
+            job_scores = rank_scores(score for score in scores if score.job_id == job.id)
+            for score in job_scores:
+                candidate = candidates.get(score.candidate_id)
+                if not candidate:
+                    continue
+                render_score_card(candidate.name, candidate.source_filename, score)
 
-    for job in jobs.values():
-        st.markdown(f"### {job.title}")
-        job_scores = rank_scores(score for score in scores if score.job_id == job.id)
-        for score in job_scores:
-            candidate = candidates.get(score.candidate_id)
-            if not candidate:
-                continue
-            render_score_card(candidate.name, candidate.source_filename, score)
-
-    ranked_scores = []
-    for job in jobs.values():
-        ranked_scores.extend(rank_scores(score for score in scores if score.job_id == job.id))
-    st.divider()
-    export_left, export_right = st.columns(2)
-    with export_left:
-        st.download_button(
-            "Download CSV",
-            export_scores_csv(ranked_scores, candidates, jobs),
-            file_name="cv_review_results.csv",
-            mime="text/csv",
-            use_container_width=True,
-        )
-    with export_right:
-        st.download_button(
-            "Download JSON",
-            export_scores_json(ranked_scores, candidates, jobs),
-            file_name="cv_review_results.json",
-            mime="application/json",
-            use_container_width=True,
-        )
+        ranked_scores = []
+        for job in jobs.values():
+            ranked_scores.extend(rank_scores(score for score in scores if score.job_id == job.id))
+        st.divider()
+        export_left, export_right = st.columns(2)
+        with export_left:
+            st.download_button(
+                "Download CSV",
+                export_scores_csv(ranked_scores, candidates, jobs),
+                file_name="cv_review_results.csv",
+                mime="text/csv",
+                use_container_width=True,
+            )
+        with export_right:
+            st.download_button(
+                "Download JSON",
+                export_scores_json(ranked_scores, candidates, jobs),
+                file_name="cv_review_results.json",
+                mime="application/json",
+                use_container_width=True,
+            )
+    render_archived_candidates(all_candidates, archived_ids)
 
 
 def render_admin_tools() -> None:
@@ -447,6 +458,7 @@ def render_score_card(candidate_name: str, source_filename: str, score) -> None:
         """,
         unsafe_allow_html=True,
     )
+    render_candidate_actions(score.candidate_id, score.job_id, candidate_name)
     with st.expander("Evidence and review notes"):
         stored_resume = load_resume_file(score.candidate_id)
         if stored_resume:
@@ -467,6 +479,66 @@ def render_score_card(candidate_name: str, source_filename: str, score) -> None:
         detail_cols[2].write(score.risks or ["None"])
         st.write("**Evidence**")
         st.write(score.evidence or ["No evidence provided"])
+
+
+def render_candidate_actions(candidate_id: str, job_id: str, candidate_name: str) -> None:
+    archive_col, delete_col = st.columns(2)
+    if archive_col.button("Archive", key=f"archive-{candidate_id}-{job_id}", use_container_width=True):
+        archive_candidate(candidate_id)
+        st.success(f"Archived {candidate_name}.")
+        st.rerun()
+
+    pending_key = f"confirm-delete-{candidate_id}-{job_id}"
+    if not st.session_state.get(pending_key):
+        if delete_col.button("Delete", key=f"delete-{candidate_id}-{job_id}", use_container_width=True):
+            st.session_state[pending_key] = True
+            st.rerun()
+        return
+
+    st.warning(f"Delete {candidate_name}? This removes the candidate, scores, and uploaded resume.")
+    confirm_col, cancel_col = st.columns(2)
+    if confirm_col.button("Confirm delete", key=f"confirm-delete-button-{candidate_id}-{job_id}"):
+        delete_candidate(candidate_id)
+        st.session_state.pop(pending_key, None)
+        st.success(f"Deleted {candidate_name}.")
+        st.rerun()
+    if cancel_col.button("Cancel", key=f"cancel-delete-{candidate_id}-{job_id}"):
+        st.session_state.pop(pending_key, None)
+        st.rerun()
+
+
+def render_archived_candidates(all_candidates, archived_ids: set[str]) -> None:
+    archived_candidates = [
+        candidate for candidate in all_candidates.values() if candidate.id in archived_ids
+    ]
+    if not archived_candidates:
+        return
+
+    with st.expander(f"Archived candidates ({len(archived_candidates)})"):
+        for candidate in archived_candidates:
+            info_col, restore_col, delete_col = st.columns([0.55, 0.2, 0.25])
+            info_col.write(f"**{candidate.name}**")
+            info_col.caption(candidate.source_filename)
+            if restore_col.button("Restore", key=f"restore-{candidate.id}", use_container_width=True):
+                unarchive_candidate(candidate.id)
+                st.success(f"Restored {candidate.name}.")
+                st.rerun()
+            pending_key = f"confirm-delete-archived-{candidate.id}"
+            if not st.session_state.get(pending_key):
+                if delete_col.button("Delete", key=f"delete-archived-{candidate.id}", use_container_width=True):
+                    st.session_state[pending_key] = True
+                    st.rerun()
+                continue
+            st.warning(f"Delete {candidate.name}? This removes the candidate, scores, and uploaded resume.")
+            confirm_col, cancel_col = st.columns(2)
+            if confirm_col.button("Confirm delete", key=f"confirm-delete-archived-button-{candidate.id}"):
+                delete_candidate(candidate.id)
+                st.session_state.pop(pending_key, None)
+                st.success(f"Deleted {candidate.name}.")
+                st.rerun()
+            if cancel_col.button("Cancel", key=f"cancel-delete-archived-{candidate.id}"):
+                st.session_state.pop(pending_key, None)
+                st.rerun()
 
 
 def _lines(value: str) -> list[str]:
