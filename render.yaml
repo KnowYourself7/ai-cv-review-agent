@@ -10,7 +10,5 @@ services:
     envVars:
       - key: OPENAI_API_KEY
         sync: false
-      - key: APP_PASSWORD
-        sync: false
       - key: CV_REVIEW_DB_PATH
         value: /var/data/cv_review.sqlite3

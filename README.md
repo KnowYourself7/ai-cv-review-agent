@@ -36,10 +36,10 @@ This option is best for quick internal review:
 - The generated `trycloudflare.com` URL is temporary and changes when the tunnel restarts.
 - Candidate data, scores, and original resume files stay in the local SQLite database.
 
-Start the app with an access password:
+Start the app:
 
 ```bash
-APP_PASSWORD='choose_a_strong_password' uv run streamlit run app.py --server.address 127.0.0.1 --server.port 8510
+uv run streamlit run app.py --server.address 127.0.0.1 --server.port 8510
 ```
 
 In another terminal, start the tunnel:
@@ -48,7 +48,7 @@ In another terminal, start the tunnel:
 cloudflared tunnel --url http://127.0.0.1:8510
 ```
 
-Open the printed `https://...trycloudflare.com` URL and unlock the app with `APP_PASSWORD`.
+Open the printed `https://...trycloudflare.com` URL.
 
 ## Private deployment on Render
 
@@ -60,7 +60,6 @@ Required environment variables:
 
 ```text
 OPENAI_API_KEY=<set in Render dashboard>
-APP_PASSWORD=<set a strong admin password>
 CV_REVIEW_DB_PATH=/var/data/cv_review.sqlite3
 ```
 
@@ -69,9 +68,9 @@ Render setup:
 1. Push this repository to GitHub.
 2. Create a Render Blueprint from `render.yaml`, or create a Docker Web Service manually.
 3. Attach a persistent disk mounted at `/var/data`.
-4. Set `OPENAI_API_KEY` and `APP_PASSWORD` in Render environment variables.
+4. Set `OPENAI_API_KEY` in Render environment variables.
 5. Confirm `CV_REVIEW_DB_PATH` is `/var/data/cv_review.sqlite3`.
-6. Deploy, open the Render URL, and unlock the app with `APP_PASSWORD`.
+6. Deploy and open the Render URL.
 
 The Docker startup command is:
 
@@ -98,7 +97,7 @@ mkdir -p ~/apps
 cd ~/apps
 git clone https://github.com/KnowYourself7/ai-cv-review-agent.git
 cd ai-cv-review-agent
-printf 'OPENAI_API_KEY=your_key_here\nAPP_PASSWORD=choose_a_strong_password\n' > .env.production
+printf 'OPENAI_API_KEY=your_key_here\n' > .env.production
 chmod 600 .env.production
 docker compose up -d --build
 ```

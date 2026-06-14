@@ -1,14 +1,12 @@
-from app import is_authenticated
+from pathlib import Path
+
+import app
 
 
-def test_is_authenticated_allows_local_dev_when_no_password_is_configured():
-    assert is_authenticated("", "", False)
+def test_app_has_no_password_gate():
+    source = Path("app.py").read_text()
 
-
-def test_is_authenticated_requires_matching_password_when_configured():
-    assert is_authenticated("secret", "secret", False)
-    assert not is_authenticated("wrong", "secret", False)
-
-
-def test_is_authenticated_keeps_existing_session_login():
-    assert is_authenticated("", "secret", True)
+    assert not hasattr(app, "require_login")
+    assert not hasattr(app, "is_authenticated")
+    assert "APP_PASSWORD" not in source
+    assert "Private access" not in source

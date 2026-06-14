@@ -201,8 +201,6 @@ def render_header() -> None:
 def main() -> None:
     apply_styles()
     render_header()
-    if not require_login():
-        return
     render_metrics()
     left, right = st.columns([0.42, 0.58], gap="large")
     with left:
@@ -220,38 +218,6 @@ def main() -> None:
         st.markdown('<div class="section-label">Output</div>', unsafe_allow_html=True)
         render_results()
     render_admin_tools()
-
-
-def require_login() -> bool:
-    configured_password = os.getenv("APP_PASSWORD", "")
-    already_authenticated = bool(st.session_state.get("authenticated", False))
-    if not configured_password:
-        st.warning("Access password is not enabled. Set APP_PASSWORD before deploying online.")
-        return True
-
-    if already_authenticated:
-        return True
-
-    st.subheader("Private access")
-    st.markdown(
-        '<p class="panel-note">Enter the admin password to view candidates, upload resumes, and download reviewed files.</p>',
-        unsafe_allow_html=True,
-    )
-    entered_password = st.text_input("Password", type="password")
-    if st.button("Unlock", type="primary"):
-        if is_authenticated(entered_password, configured_password, already_authenticated):
-            st.session_state["authenticated"] = True
-            st.rerun()
-        st.error("Incorrect password.")
-    return False
-
-
-def is_authenticated(entered_password: str, configured_password: str, session_authenticated: bool) -> bool:
-    if session_authenticated:
-        return True
-    if not configured_password:
-        return True
-    return entered_password == configured_password
 
 
 def render_metrics() -> None:
